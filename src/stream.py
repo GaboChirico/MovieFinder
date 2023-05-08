@@ -1,34 +1,45 @@
+from typing import Dict, List
+
 from justwatch import JustWatch
 
-from models import Query
-from values import PLATFORMS, REGIONS
+from models import Result
+from serialize import serialize
+from values import PLATFORMS
+
+
+def find(query: str, region: str) -> Result:
+    return serialize(SteamerFinder(query=query, region=region)())
 
 
 class SteamerFinder:
-    def __init__(self, country: str, query: Query):
-        if country not in REGIONS:
-            raise ValueError(f"Region {country} not supported")
-        self.region = country
-        self.query = query.value
-        self.results = self.search()
-        self.title = self.results["title"]
-        self.offers = self.results["offers"]
-        
-    def search(self):
+    def __init__(self, query: str, region: str):
+        self.query = query
+        self.region = region
+        self.results = Result()
+
+    def __call__(self):
+        payload = self.search()
+        self.results.title = self.get_title(payload)
+        self.results.platforms = self.get_platforms(payload)
+        return self.results
+
+    def search(self) -> Dict[str, str]:
         jw_api = JustWatch(country=self.region).search_for_item(query=self.query)
-        if not jw_api["items"]:
-            raise ValueError(f"No results found for {self.query}")
         return jw_api["items"][0]
 
-    def get_streamer_offers(self):
-        return [
+    @staticmethod
+    def get_title(payload: Dict[str, str]) -> str:
+        return payload["title"]
+
+    @staticmethod
+    def get_platforms(payload: Dict[str, str]) -> List[Dict[str, str]]:
+        platforms = [
             {
                 "platform": PLATFORMS[i["package_short_name"]],
                 "url": i["urls"]["standard_web"],
             }
-            for i in self.results["offers"]
+            for i in payload["offers"]
             if i["monetization_type"] == "flatrate"
+            and i["package_short_name"] in PLATFORMS
         ]
-
-    def get_platforms(self):
-        return {p["platform"]: p["url"] for p in self.get_streamer_offers()}
+        return [dict(t) for t in {tuple(d.items()) for d in platforms}]
