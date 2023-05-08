@@ -1,16 +1,16 @@
 import argparse
 
-from stream import SteamerFinder
-from models import Query, Result
+from models import Query
+from stream import find
 
 
-def _parse_args():
+def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="JustWatch CLI")
     parser.add_argument(
         "-c",
         "--country",
         type=str,
-        default="ES",
+        required=True,
         help="Country code to search in JustWatch",
     )
     parser.add_argument(
@@ -24,12 +24,12 @@ def _parse_args():
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     args = _parse_args()
 
-    query = Query(args.query)
-    result = SteamerFinder(args.country, query)
-    print(Result(result.title, result.get_platforms()).__dict__)
+    country = args.country.upper()
+    query = Query(value=args.query, region=country)
+    print(find(query=query.value, region=query.region))
 
 
 if __name__ == "__main__":
